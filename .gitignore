@@ -1,0 +1,33 @@
+# Python virtual environments & packages
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Sensitive Configuration (bot token, camera passwords)
+config/config.yaml
+
+# AI Models & Pretrained Weights (auto-downloaded on first run)
+*.pt
+*.pth
+*.onnx
+models/*.pt
+
+# Captures, Dataset, and Scratch files
+captures/
+dataset/
+scratch/
+runs/
+*.log
+
+# OS & Editor files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="uz" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMART CLASSROOM DETECTOR | AI Proctoring</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#1e1b4b'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1f2937; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col font-sans">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-gray-900 border-b border-gray-800 sticky top-0 z-50 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-indigo-500/30 shadow-lg">
+                    <i class="fa-solid fa-brain text-white text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                        SMART CLASSROOM DETECTOR
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">AI v1.0</span>
+                    </h1>
+                    <p class="text-xs text-gray-400">Lokal tarmoq NVR va kameralar nazorati tizimi</p>
+                </div>
+            </div>
+
+            <!-- Badges -->
+            <div class="flex items-center space-x-3 text-xs">
+                <div class="flex items-center space-x-2 bg-gray-800/80 px-3 py-1.5 rounded-lg border border-gray-700">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span class="text-gray-300 font-medium">GPU: RTX 3060 CUDA</span>
+                </div>
+                <div class="flex items-center space-x-2 bg-gray-800/80 px-3 py-1.5 rounded-lg border border-gray-700">
+                    <i class="fa-solid fa-video text-blue-400"></i>
+                    <span class="text-gray-300 font-medium">Kameralar: <span id="activeCamCount">{{ cameras|length }}</span></span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full flex flex-col space-y-6">
+
+        <!-- Navigation Tabs -->
+        <div class="flex space-x-2 border-b border-gray-800 pb-2 overflow-x-auto custom-scrollbar">
+            <button onclick="switchTab('live')" id="tab-btn-live" class="tab-btn flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition bg-indigo-600 text-white shadow-indigo-600/30 shadow-md">
+                <i class="fa-solid fa-display"></i>
+                <span>Jonli Kuzatuv</span>
+            </button>
+            <button onclick="switchTab('cameras')" id="tab-btn-cameras" class="tab-btn flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition bg-gray-900 text-gray-400 hover:text-white hover:bg-gray-800">
+                <i class="fa-solid fa-video"></i>
+                <span>Kameralar & NVR</span>
+            </button>
+            <button onclick="switchTab('telegram')" id="tab-btn-telegram" class="tab-btn flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition bg-gray-900 text-gray-400 hover:text-white hover:bg-gray-800">
+                <i class="fa-brands fa-telegram"></i>
+                <span>Telegram Bot</span>
+            </button>
+            <button onclick="switchTab('rules')" id="tab-btn-rules" class="tab-btn flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition bg-gray-900 text-gray-400 hover:text-white hover:bg-gray-800">
+                <i class="fa-solid fa-sliders"></i>
+                <span>Qoidalar & Sezgirlik</span>
+            </button>
+            <button onclick="switchTab('history')" id="tab-btn-history" class="tab-btn flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition bg-gray-900 text-gray-400 hover:text-white hover:bg-gray-800">
+                <i class="fa-solid fa-bell"></i>
+                <span>Qoidabuzarliklar Tarixi</span>
+            </button>
+        </div>
+
+        <!-- Notification Toast Box -->
+        <div id="toastBox" class="hidden transition-all duration-300 p-4 rounded-xl text-sm font-medium flex items-center justify-between border"></div>
+
+        <!-- 1. JONLI KUZATUV (LIVE MONITORING) TAB -->
+        <div id="tab-live" class="tab-content flex-1 space-y-4">
+            {% if cameras|length == 0 %}
+            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-12 text-center">
+                <i class="fa-solid fa-video-slash text-5xl text-gray-600 mb-4"></i>
+                <h3 class="text-lg font-bold text-gray-300">Hozircha birorta kamera qo'shilmagan</h3>
+                <p class="text-sm text-gray-500 mt-1 mb-4">Lokal RTSP oqimini yoki vebkamerangizni qo'shing</p>
+                <button onclick="switchTab('cameras')" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition">
+                    + Yangi Kamera Qo'shish
+                </button>
+            </div>
+            {% else %}
+            <!-- Kamera tanlash filtri va ko'rinish rejimi -->
+            <!-- Kamera tanlash filtri va ko'rinish rejimi -->
+            <div class="flex items-center justify-between bg-gray-900 border border-gray-800 rounded-xl px-4 py-2.5 shadow-md flex-wrap gap-2">
+                <div class="flex items-center space-x-2 overflow-x-auto custom-scrollbar py-0.5 max-w-full">
+                    <span class="text-xs text-gray-400 font-semibold mr-1 flex items-center gap-1.5 shrink-0">
+                        <i class="fa-solid fa-layer-group text-indigo-400"></i> Ko'rinish:
+                    </span>
+                    <button onclick="focusCamera('all')" id="btn-filter-all" class="cam-filter-btn px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold transition shadow-sm shrink-0">
+                        Barchasi (Grid)
+                    </button>
+                    {% for cam in cameras %}
+                    {% if cam.enabled %}
+                    <button onclick="focusCamera('{{ cam.id }}')" id="btn-filter-{{ cam.id }}" class="cam-filter-btn px-3 py-1.5 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 text-xs font-semibold transition border border-gray-700 shrink-0">
+                        {{ cam.name }}
+                    </button>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="flex items-center space-x-3 text-xs text-gray-400">
+                    <button onclick="toggleGlobalLiveStream()" id="btnGlobalLiveToggle" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-2 shadow-sm bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-600 hover:text-white shrink-0">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" id="dotGlobalLive"></span>
+                        <span id="textGlobalLive">Jonli Efir: YOQILGAN</span>
+                    </button>
+                    <div id="gridPaginationControls" class="hidden items-center space-x-1.5 bg-gray-800/80 px-2.5 py-1 rounded-lg border border-gray-700">
+                        <span class="text-[11px] text-gray-400">Kamera guruhi:</span>
+                        <button onclick="changeLiveGridPage(-1)" id="btnLiveGridPrev" class="w-6 h-6 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition">
+                            <i class="fa-solid fa-chevron-left text-[10px]"></i>
+                        </button>
+                        <span id="liveGridPageInfo" class="font-mono text-xs text-indigo-300 font-semibold px-1">1 / 1</span>
+                        <button onclick="changeLiveGridPage(1)" id="btnLiveGridNext" class="w-6 h-6 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition">
+                            <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                        </button>
+                    </div>
+                    <div class="hidden lg:flex items-center text-gray-400 text-xs gap-1.5">
+                        <i class="fa-solid fa-circle-info text-sky-400"></i>
+                        <span>Kattalashtirish uchun <b>2 marta bosing</b></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="liveCameraGrid">
+                {% for cam in cameras %}
+                {% if cam.enabled %}
+                <div class="camera-card bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-xl flex flex-col transition-all duration-200" id="card-{{ cam.id }}" data-cam-id="{{ cam.id }}">
+                    <div class="px-4 py-2.5 bg-gray-850 border-b border-gray-800 flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span class="font-bold text-sm text-gray-200">{{ cam.name }}</span>
+                            <span class="text-xs text-gray-500 font-mono">({{ cam.id }})</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="openLiveZoomModal('{{ cam.id }}', '{{ cam.name }}')" class="px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-magnifying-glass-plus"></i> Kattalashtirish
+                            </button>
+                            <span class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-semibold">FAOL</span>
+                        </div>
+                    </div>
+                    <div class="relative bg-black flex items-center justify-center min-h-[360px] cursor-pointer group" ondblclick="openLiveZoomModal('{{ cam.id }}', '{{ cam.name }}')" title="To'liq ekranda ko'rish uchun ikki marta bosing">
+                        <img data-stream-url="/api/cameras/{{ cam.id }}/stream" src="/api/cameras/{{ cam.id }}/stream" alt="{{ cam.name }}" class="w-full h-auto object-contain select-none live-cam-img" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'text-gray-500 text-sm p-8 text-center\'><i class=\'fa-solid fa-triangle-exclamation text-3xl mb-2 text-amber-500\'></i><br>Kameraga ulanib bo‘lmadi yoki oqim kutilmoqda.</div>';">
+                        
+                        <!-- Stream Paused / Eco Mode Overlay -->
+                        <div class="stream-paused-placeholder absolute inset-0 bg-gray-950 flex flex-col items-center justify-center p-6 text-center hidden">
+                            <div class="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 text-2xl mb-3 shadow-lg">
+                                <i class="fa-solid fa-shield-halved animate-pulse"></i>
+                            </div>
+                            <h4 class="text-sm font-bold text-gray-200 mb-1">AI Monitoring Faol</h4>
+                            <p class="text-xs text-gray-500 mb-4 max-w-xs">Tizim orqa fonda barcha qoidabuzarliklarni tahlil qilib, Telegramga yubormoqda.</p>
+                            <button onclick="startSingleStream('{{ cam.id }}', event)" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-2 shadow-lg transition">
+                                <i class="fa-solid fa-play"></i> Ushbu kamerani ko'rish
+                            </button>
+                        </div>
+
+                        <!-- Hover hint overlay -->
+                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none live-hover-hint">
+                            <span class="px-4 py-2 rounded-xl bg-black/70 backdrop-blur-md text-white text-xs font-semibold flex items-center gap-2 border border-white/10 shadow-lg">
+                                <i class="fa-solid fa-expand text-indigo-400"></i> To'liq ochish uchun 2 marta bosing
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 2. KAMERALAR VA NVR (CAMERAS & NVR) TAB -->
+        <div id="tab-cameras" class="tab-content hidden space-y-5">
+            <!-- Yuqori boshqaruv paneli: Sarlavha va harakat tugmalari -->
+            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2.5">
+                        <i class="fa-solid fa-video text-indigo-400"></i>
+                        Kameralar va NVR Tizimi Boshqaruvi
+                    </h2>
+                    <p class="text-xs text-gray-400 mt-1">100+ kameralar uchun tezkor qidiruv, sahifalash, guruhlab boshqarish va NVR shablonli generatsiya.</p>
+                </div>
+                <div class="flex items-center flex-wrap gap-2.5">
+                    <button onclick="openBatchAddModal()" class="px-3.5 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold transition flex items-center gap-2 shadow-sm">
+                        <i class="fa-solid fa-bolt text-indigo-400"></i>
+                        <span>Ommaviy Qo'shish (NVR / Diapazon)</span>
+                    </button>
+                    <button onclick="openAddCameraModal()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition flex items-center gap-2 shadow-md">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>Yangi Kamera Qo'shish</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Metrikalar / Statistika ko'rsatkichlari -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center space-x-3 shadow-lg">
+                    <div class="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-lg border border-indigo-500/20">
+                        <i class="fa-solid fa-server"></i>
+                    </div>
+                    <div>
+                        <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Jami Kameralar</div>
+                        <div class="text-xl font-bold text-white" id="statTotalCams">{{ cameras|length }}</div>
+                    </div>
+                </div>
+                <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center space-x-3 shadow-lg">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-lg border border-emerald-500/20">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <div>
+                        <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Faol (Monitoringda)</div>
+                        <div class="text-xl font-bold text-emerald-400" id="statActiveCams">0</div>
+                    </div>
+                </div>
+                <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center space-x-3 shadow-lg">
+                    <div class="w-10 h-10 rounded-lg bg-gray-800 text-gray-400 flex items-center justify-center text-lg border border-gray-700">
+                        <i class="fa-solid fa-circle-pause"></i>
+                    </div>
+                    <div>
+                        <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">O'chirilgan (Kutishda)</div>
+                        <div class="text-xl font-bold text-gray-300" id="statInactiveCams">0</div>
+                    </div>
+                </div>
+                <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center space-x-3 shadow-lg">
+                    <div class="w-10 h-10 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center text-lg border border-sky-500/20">
+                        <i class="fa-solid fa-filter"></i>
+                    </div>
+                    <div>
+                        <div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Ko'rsatilmoqda</div>
+                        <div class="text-xl font-bold text-sky-400" id="statFilteredCams">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Asosiy kameralar jadvali va boshqaruv bloki -->
+            <div class="bg-gray-900 border border-gray-800 rounded-2xl shadow-xl overflow-hidden flex flex-col">
+                <!-- Qidiruv va Filter paneli -->
+                <div class="p-4 bg-gray-850 border-b border-gray-800 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                    <div class="flex items-center flex-1 max-w-md relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 text-gray-400 text-xs"></i>
+                        <input type="text" id="camSearchInput" oninput="onCameraSearchChange()" placeholder="Auditoriya, kamera nomi, ID yoki RTSP manzili bo'yicha qidirish..." class="w-full bg-gray-800 border border-gray-700 rounded-xl pl-9 pr-8 py-2 text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition">
+                        <button id="camSearchClearBtn" onclick="clearCameraSearch()" class="hidden absolute right-3 text-gray-400 hover:text-white text-xs">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <div class="flex items-center flex-wrap gap-2 text-xs">
+                        <div class="flex items-center bg-gray-800 p-1 rounded-xl border border-gray-700">
+                            <button onclick="setCamStatusFilter('all')" id="btnFilterStatusAll" class="px-3 py-1 rounded-lg font-semibold transition bg-indigo-600 text-white shadow-sm">
+                                Barchasi
+                            </button>
+                            <button onclick="setCamStatusFilter('active')" id="btnFilterStatusActive" class="px-3 py-1 rounded-lg font-semibold transition text-gray-400 hover:text-white">
+                                🟢 Faol
+                            </button>
+                            <button onclick="setCamStatusFilter('inactive')" id="btnFilterStatusInactive" class="px-3 py-1 rounded-lg font-semibold transition text-gray-400 hover:text-white">
+                                ⚪ O'chirilgan
+                            </button>
+                        </div>
+
+                        <div class="flex items-center space-x-1.5 pl-2 border-l border-gray-700 text-gray-400">
+                            <span>Ko'rsatish:</span>
+                            <select id="camPageSize" onchange="onPageSizeChange()" class="bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer">
+                                <option value="15" selected>15 ta</option>
+                                <option value="25">25 ta</option>
+                                <option value="50">50 ta</option>
+                                <option value="100">100 ta</option>
+                                <option value="all">Hammasi</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ommaviy amallar paneli (checkbox tanlanganda ochiladi) -->
+                <div id="bulkActionsBar" class="hidden bg-indigo-950/60 border-b border-indigo-800/60 px-4 py-2.5 flex items-center justify-between flex-wrap gap-2 transition-all animate-fade-in">
+                    <div class="flex items-center space-x-2 text-xs text-indigo-200">
+                        <i class="fa-solid fa-square-check text-indigo-400 text-sm"></i>
+                        <span>Tanlandi: <strong id="selectedCountText" class="text-white font-bold">0</strong> ta kamera</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="bulkToggle(true)" class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition flex items-center gap-1 shadow-sm">
+                            <i class="fa-solid fa-play"></i> Tanlanganlarni Yoqish
+                        </button>
+                        <button onclick="bulkToggle(false)" class="px-3 py-1 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-semibold transition flex items-center gap-1">
+                            <i class="fa-solid fa-pause"></i> O'chirish
+                        </button>
+                        <button onclick="bulkDelete()" class="px-3 py-1 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-semibold transition flex items-center gap-1 shadow-sm">
+                            <i class="fa-solid fa-trash-can"></i> O'chirish (Delete)
+                        </button>
+                        <button onclick="clearAllSelections()" class="px-2.5 py-1 text-xs text-gray-400 hover:text-white transition">
+                            Bekor qilish
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Kameralar jadvali -->
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left text-sm text-gray-400">
+                        <thead class="bg-gray-800 text-xs uppercase text-gray-400 border-b border-gray-700 select-none">
+                            <tr>
+                                <th class="px-4 py-3 w-10 text-center">
+                                    <input type="checkbox" id="masterSelectAll" onchange="toggleMasterSelect(this.checked)" class="w-4 h-4 rounded bg-gray-700 border-gray-600 text-indigo-600 focus:ring-0 cursor-pointer">
+                                </th>
+                                <th class="px-4 py-3 w-28">Holati</th>
+                                <th class="px-4 py-3 cursor-pointer hover:text-white" onclick="sortCamerasBy('id')">
+                                    ID <i class="fa-solid fa-sort text-[10px] ml-1"></i>
+                                </th>
+                                <th class="px-4 py-3 cursor-pointer hover:text-white" onclick="sortCamerasBy('name')">
+                                    Auditoriya / Nomi <i class="fa-solid fa-sort text-[10px] ml-1"></i>
+                                </th>
+                                <th class="px-4 py-3">Manba (RTSP URL)</th>
+                                <th class="px-4 py-3 w-20 text-center">FPS</th>
+                                <th class="px-4 py-3 text-right w-36">Amallar</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-800" id="camTableBody">
+                            <!-- JavaScript dinamik to'ldiradi -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Sahifalash (Pagination) va Ma'lumot -->
+                <div class="px-4 py-3 bg-gray-850 border-t border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-gray-400">
+                    <div id="paginationInfo">
+                        Yuklanmoqda...
+                    </div>
+                    <div class="flex items-center space-x-1" id="paginationControls">
+                        <!-- JavaScript sahifa tugmalarini yaratadi -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. TELEGRAM BOT TAB -->
+        <div id="tab-telegram" class="tab-content hidden space-y-6">
+            <div class="max-w-3xl mx-auto bg-gray-900 border border-gray-800 rounded-2xl p-6 sm:p-8 shadow-xl">
+                <div class="flex items-center space-x-3 mb-6">
+                    <div class="w-12 h-12 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center text-2xl border border-sky-500/20">
+                        <i class="fa-brands fa-telegram"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold text-white">Telegram Bildirishnomalari Sozlamasi</h2>
+                        <p class="text-xs text-gray-400">Qoidabuzarlik aniqlanganda surat va tafsilotlar ushbu bot orqali kanalga yuboriladi.</p>
+                    </div>
+                </div>
+
+                <form id="tgSettingsForm" onsubmit="saveTelegramSettings(event)" class="space-y-5">
+                    <!-- Enable toggle -->
+                    <div class="flex items-center justify-between p-4 bg-gray-800/60 rounded-xl border border-gray-700">
+                        <div>
+                            <span class="font-semibold text-sm text-white">Telegram orqali jo'natish holati:</span>
+                            <p class="text-xs text-gray-400">Qoidabuzarlik sodir bo'lganda Telegram kanalga yuborish</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="enabled" id="tgEnabled" {% if config.telegram.enabled %}checked{% endif %} class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
+
+                    <!-- Include Status (Holat haqida yozish) toggle -->
+                    <div class="flex items-center justify-between p-4 bg-gray-800/60 rounded-xl border border-gray-700">
+                        <div>
+                            <span class="font-semibold text-sm text-white">Qoidabuzarlik holati (matni) bilan yuborish:</span>
+                            <p class="text-xs text-gray-400">Yoqilsa: Holat tavsifi yoziladi. O'chirilsa: faqat qoidabuzar belgilanadi, holat haqida hech narsa yozilmaydi.</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="include_status" id="tgIncludeStatus" {% if config.telegram.include_status is not defined or config.telegram.include_status %}checked{% endif %} class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                        </label>
+                    </div>
+
+                    <!-- Bot Token -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Telegram Bot Token:</label>
+                        <input type="text" name="bot_token" id="tgBotToken" value="{{ config.telegram.bot_token or '8665319765:AAGM2txc1ztL_QXvRKWiJz2fqc9vQJryvUI' }}" required class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-indigo-500">
+                    </div>
+
+                    <!-- Chat ID -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-xs font-semibold text-gray-400">Telegram Kanal / Guruh ID (masalan: -100...):</label>
+                            <button type="button" onclick="detectChannelId()" class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                Avtomatik ID ni aniqlash
+                            </button>
+                        </div>
+                        <input type="text" name="chat_id" id="tgChatId" value="{{ config.telegram.chat_id }}" placeholder="-1001234567890 yoki @kanal_username" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-indigo-500">
+                        <p class="text-[11px] text-gray-500 mt-1">
+                            ℹ️ Yopiq kanal ID sini bilmasangiz: Kanalingizga biror xabar (masalan: <b>"test"</b>) yuboring, so'ng yuqoridagi <b>"Avtomatik ID ni aniqlash"</b> tugmasini bosing!
+                        </p>
+                    </div>
+
+                    <!-- Cooldown -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Anti-spam Cooldown (soniya):</label>
+                        <input type="number" name="cooldown" id="tgCooldown" value="{{ config.telegram.alert_cooldown_seconds or 60 }}" min="10" max="600" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        <p class="text-[11px] text-gray-500 mt-1">Bir xil kamera va holat uchun kanalga qayta rasm yuborish oralig'i (standart: 60 soniya).</p>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row gap-3 pt-2">
+                        <button type="submit" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg text-sm transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-check"></i>
+                            Sozlamalarni Saqlash
+                        </button>
+                        <button type="button" onclick="testTelegramConnection()" class="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-sky-400 border border-gray-700 font-semibold rounded-lg text-sm transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-paper-plane"></i>
+                            Test Xabar Yuborish
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 4. QOIDALAR VA SEZGIRLIK TAB -->
+        <div id="tab-rules" class="tab-content hidden space-y-6">
+            <div class="max-w-3xl mx-auto bg-gray-900 border border-gray-800 rounded-2xl p-6 sm:p-8 shadow-xl">
+                <h2 class="text-base font-bold text-white mb-6 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-indigo-500"></i>
+                    AI Aniqlash Qoidalari va Vaqt Chegaralari
+                </h2>
+                <form id="rulesForm" onsubmit="saveDetectionRules(event)" class="space-y-6">
+                    <!-- Umumiy ishonchlilik -->
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold text-gray-300 mb-2">
+                            <span>Umumiy AI Ishonchlilik chegarasi (Confidence):</span>
+                            <span id="confVal" class="text-indigo-400 font-mono">{{ config.detection.confidence_threshold }}</span>
+                        </div>
+                        <input type="range" name="conf_thresh" id="confSlider" min="0.2" max="0.8" step="0.05" value="{{ config.detection.confidence_threshold }}" oninput="document.getElementById('confVal').innerText=this.value" class="w-full accent-indigo-500">
+                    </div>
+
+                    <div class="border-t border-gray-800 pt-5 space-y-4">
+                        <!-- Uxlab qolish -->
+                        <div class="p-4 bg-gray-850 rounded-xl border border-gray-800 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-lg">😴</span>
+                                    <div>
+                                        <span class="font-bold text-sm text-gray-200">Uxlayotgan talabani aniqlash</span>
+                                        <p class="text-xs text-gray-400">Partaga bosh qo'yib yotgan yoki uxlab qolgan holat (Konspekt yozayotganlar hisobga olinmaydi)</p>
+                                    </div>
+                                </div>
+                                <input type="checkbox" name="sleep_enabled" {% if config.detection.sleeping.enabled %}checked{% endif %} class="w-4 h-4 accent-indigo-500">
+                            </div>
+                            <div class="flex items-center space-x-3 text-xs">
+                                <label class="text-gray-400">Minimal davomiylik (soniya):</label>
+                                <input type="number" step="1.0" name="sleep_dur" value="{{ config.detection.sleeping.min_duration_seconds }}" min="3.0" max="30.0" class="w-24 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white">
+                            </div>
+                        </div>
+
+                        <!-- Telefon o'ynash -->
+                        <div class="p-4 bg-gray-850 rounded-xl border border-gray-800 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-lg">📱</span>
+                                    <div>
+                                        <span class="font-bold text-sm text-gray-200">Telefon o'ynayotgan talabani aniqlash</span>
+                                        <p class="text-xs text-gray-400">Qo'lda smartfon ushlab matn terish yoki o'ynash</p>
+                                    </div>
+                                </div>
+                                <input type="checkbox" name="phone_enabled" {% if config.detection.phone.enabled %}checked{% endif %} class="w-4 h-4 accent-indigo-500">
+                            </div>
+                            <div class="flex items-center space-x-3 text-xs">
+                                <label class="text-gray-400">Minimal davomiylik (soniya):</label>
+                                <input type="number" step="0.5" name="phone_dur" value="{{ config.detection.phone.min_duration_seconds }}" min="1.0" max="10.0" class="w-24 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white">
+                            </div>
+                        </div>
+
+                        <!-- Sherigi bilan gaplashish -->
+                        <div class="p-4 bg-gray-850 rounded-xl border border-gray-800 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-lg">🗣️</span>
+                                    <div>
+                                        <span class="font-bold text-sm text-gray-200">Orqaga o'girilib gaplashayotgan talabani aniqlash</span>
+                                        <p class="text-xs text-gray-400">Orqaga o'girilib / orqadagi partadagilar bilan gaplashish (yonidagi partadoshi bilan ruxsat etiladi)</p>
+                                    </div>
+                                </div>
+                                <input type="checkbox" name="talking_enabled" {% if config.detection.talking.enabled %}checked{% endif %} class="w-4 h-4 accent-indigo-500">
+                            </div>
+                            <div class="flex items-center space-x-3 text-xs">
+                                <label class="text-gray-400">Minimal davomiylik (soniya):</label>
+                                <input type="number" step="0.5" name="talking_dur" value="{{ config.detection.talking.min_duration_seconds }}" min="1.0" max="15.0" class="w-24 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white">
+                            </div>
+                        </div>
+
+                        <!-- O'qituvchini istisno qilish filtri -->
+                        <div class="p-4 bg-gray-850 rounded-xl border border-gray-800 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-lg">👨‍🏫</span>
+                                    <div>
+                                        <span class="font-bold text-sm text-gray-200">O'qituvchini istisno qilish filtri</span>
+                                        <p class="text-xs text-gray-400">Kamera orqadan qaraganda o'qituvchini talaba sifatida (telefon/uxlash) xato belgilamaslik</p>
+                                    </div>
+                                </div>
+                                <input type="checkbox" name="teacher_filter_enabled" id="teacherFilterEnabled" {% if config.detection.get('teacher_filter', {}).get('enabled', True) %}checked{% endif %} class="w-4 h-4 accent-indigo-500">
+                            </div>
+                            <div class="flex items-center space-x-3 text-xs">
+                                <label class="text-gray-400">O'qituvchi/Doska minbari hududi (kadr pastki qismi %):</label>
+                                <input type="number" step="0.05" name="teacher_bottom_zone" value="{{ config.detection.get('teacher_filter', {}).get('bottom_zone_ratio', 0.30) }}" min="0.1" max="0.6" class="w-24 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white">
+                                <span class="text-[11px] text-gray-500">(0.30 = kadrning pastki 30% maydoni)</span>
+                            </div>
+                        </div>
+
+                        <!-- Tasvir chegarasi / ROI filtri (qirqilgan odamlarni chetlatish) -->
+                        <div class="p-4 bg-gray-850 rounded-xl border border-gray-800 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-lg">🔲</span>
+                                    <div>
+                                        <span class="font-bold text-sm text-gray-200">Tasvir chegarasi / Faol hudud (ROI) filtri</span>
+                                        <p class="text-xs text-gray-400">Eshik yoki chekkada yurgan, tanasi qirqilgan odamlarni xato qoidabuzar deb hisoblamaslik</p>
+                                    </div>
+                                </div>
+                                <input type="checkbox" name="roi_enabled" id="roiEnabled" {% if config.detection.get('roi', {}).get('enabled', True) %}checked{% endif %} class="w-4 h-4 accent-indigo-500">
+                            </div>
+                            <div class="flex items-center space-x-3 text-xs">
+                                <label class="text-gray-400">Chetki chegara marjasi (%):</label>
+                                <input type="number" step="0.01" name="roi_margin" value="{{ config.detection.get('roi', {}).get('margin_pct', 0.03) }}" min="0.01" max="0.10" class="w-24 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white">
+                                <span class="text-[11px] text-gray-500">(0.03 = kadr chetlaridagi 3% qism)</span>
+                            </div>
+                        </div>
+
+                        <!-- Chaqaloqli talabalarni alohida aniqlash -->
+                        <div class="p-4 bg-gray-850 rounded-xl border border-gray-800 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-lg">👶</span>
+                                    <div>
+                                        <span class="font-bold text-sm text-gray-200">Chaqaloqli talabalarni aniqlash</span>
+                                        <p class="text-xs text-gray-400">Bag'rida chaqaloq bilan o'tirgan onalarni alohida belgilash va ularni telefon/uxlashdan himoyalash</p>
+                                    </div>
+                                </div>
+                                <input type="checkbox" name="baby_enabled" id="babyEnabled" {% if config.detection.get('baby_detection', {}).get('enabled', True) %}checked{% endif %} class="w-4 h-4 accent-indigo-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg text-sm transition">
+                        Parametrlarni Saqlash
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 5. QOIDABUZARLIKLAR TARIXI TAB -->
+        <div id="tab-history" class="tab-content hidden space-y-4">
+            <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-indigo-500"></i>
+                        Oxirgi Qayd Etilgan Qoidabuzarliklar
+                    </h2>
+                    <button onclick="refreshHistory()" class="text-xs px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrows-rotate"></i> Yangilash
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="historyCards">
+                    {% if history|length == 0 %}
+                    <div class="col-span-full text-center py-12 text-gray-500">
+                        <i class="fa-solid fa-shield-cat text-4xl mb-2"></i>
+                        <p class="text-sm">Hozircha qoidabuzarliklar qayd etilmadi.</p>
+                    </div>
+                    {% else %}
+                    {% for item in history %}
+                    <div class="bg-gray-800/70 border border-gray-700/60 rounded-xl overflow-hidden hover:border-indigo-500/50 transition flex flex-col">
+                        <div class="relative bg-black aspect-video flex items-center justify-center cursor-pointer" onclick="openImageModal('/api/captures/{{ item.image }}')">
+                            <img src="/api/captures/{{ item.image }}" alt="{{ item.title }}" class="w-full h-full object-cover">
+                            <span class="absolute top-2 left-2 px-2 py-0.5 rounded text-[11px] font-bold uppercase
+                                {% if item.type == 'SLEEPING' %}bg-sky-600 text-white
+                                {% elif item.type == 'PHONE' %}bg-rose-600 text-white
+                                {% else %}bg-amber-600 text-white{% endif %}">
+                                {{ item.type }}
+                            </span>
+                        </div>
+                        <div class="p-3 text-xs space-y-1">
+                            <p class="font-bold text-gray-200">{{ item.title }}</p>
+                            <div class="flex justify-between text-gray-400">
+                                <span>{{ item.camera_name }}</span>
+                                <span class="font-semibold text-emerald-400">{{ item.confidence }}</span>
+                            </div>
+                            <p class="text-[11px] text-gray-500">{{ item.time }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Image Modal -->
+    <div id="imageModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4" onclick="closeImageModal()">
+        <div class="relative max-w-4xl max-h-[90vh] bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-2xl" onclick="event.stopPropagation()">
+            <img id="modalImg" src="" alt="Violation" class="w-full h-auto max-h-[85vh] object-contain">
+            <button onclick="closeImageModal()" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Live Stream Zoom & Pan Modal -->
+    <div id="liveZoomModal" class="fixed inset-0 bg-black/95 backdrop-blur-md z-50 hidden flex flex-col p-2 sm:p-4 select-none">
+        <!-- Control Header -->
+        <div class="flex items-center justify-between bg-gray-900/90 border border-gray-800 rounded-xl px-4 py-2.5 mb-2 shadow-2xl">
+            <div class="flex items-center space-x-3">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <h3 id="zoomCamTitle" class="font-bold text-white text-sm sm:text-base">Kamera Nomi</h3>
+                <span class="text-xs font-mono text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">JONLI EFIR (AI 2K)</span>
+            </div>
+            <!-- Zoom Controls -->
+            <div class="flex items-center space-x-2">
+                <button onclick="changeZoom(0.3)" title="Yaqinlashtirish" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-xs font-semibold flex items-center gap-1 border border-gray-700 transition">
+                    <i class="fa-solid fa-plus text-indigo-400"></i> <span class="hidden sm:inline">Yaqinlashtirish</span>
+                </button>
+                <button onclick="changeZoom(-0.3)" title="Uzoqlashtirish" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-xs font-semibold flex items-center gap-1 border border-gray-700 transition">
+                    <i class="fa-solid fa-minus text-indigo-400"></i> <span class="hidden sm:inline">Uzoqlashtirish</span>
+                </button>
+                <button onclick="resetZoom()" title="Asl o'lcham" id="zoomLevelBtn" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-xs font-semibold border border-gray-700 transition">
+                    100%
+                </button>
+                <button onclick="toggleBrowserFullscreen()" title="To'liq ekranga yoyish" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-sky-400 rounded-lg text-xs font-semibold flex items-center gap-1 border border-gray-700 transition">
+                    <i class="fa-solid fa-expand"></i> <span class="hidden sm:inline">To'liq Ekran</span>
+                </button>
+                <button onclick="closeLiveZoomModal()" title="Yopish (Esc)" class="w-8 h-8 rounded-lg bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white flex items-center justify-center transition border border-rose-500/30">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Interactive Pan/Zoom Viewport -->
+        <div id="zoomViewport" class="flex-1 overflow-hidden relative flex items-center justify-center bg-black rounded-xl border border-gray-800 cursor-grab active:cursor-grabbing">
+            <img id="zoomLiveImg" src="" alt="Live Feed" class="max-w-full max-h-full object-contain pointer-events-none transition-transform duration-75 ease-out">
+            <div class="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 text-[11px] text-gray-400 pointer-events-none">
+                💡 Sichqoncha g'ildiragi (Scroll) orqali yaqinlashtiring, ushlab sudrab harakatlantiring.
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Camera Modal -->
+    <div id="editCameraModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl relative animate-fade-in" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between pb-4 border-b border-gray-800 mb-5">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square text-amber-400"></i>
+                    Kamerani Tahrirlash
+                </h3>
+                <button onclick="closeEditCameraModal()" class="text-gray-400 hover:text-white text-lg transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form id="editCamForm" onsubmit="submitEditCamera(event)" class="space-y-4">
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-xs font-semibold text-gray-400">Kamera Identifikatori (ID):</label>
+                        <span class="text-[10px] bg-gray-800 text-gray-400 border border-gray-700 px-2 py-0.5 rounded font-mono">O'zgarmas</span>
+                    </div>
+                    <input type="text" id="editCamId" name="cam_id" readonly class="w-full bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-400 font-mono focus:outline-none cursor-not-allowed">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Auditoriya / Kamera Nomi:</label>
+                    <input type="text" id="editCamName" name="name" required class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Oqim Manbasi (RTSP URL yoki Vebkamera):</label>
+                    <input type="text" id="editCamSource" name="source" required class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white font-mono text-xs focus:outline-none focus:border-indigo-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">FPS Limiti (1-30):</label>
+                        <input type="number" id="editCamFps" name="fps_limit" min="1" max="30" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Kamera Holati:</label>
+                        <div class="flex items-center h-[38px]">
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="editCamEnabled" name="enabled" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                                <span id="editCamEnabledLabel" class="ml-3 text-xs font-semibold text-gray-300">Faol</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-800">
+                    <button type="button" onclick="closeEditCameraModal()" class="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold transition">
+                        Bekor qilish
+                    </button>
+                    <button type="submit" class="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-check"></i>
+                        O'zgarishlarni Saqlash
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Camera Modal -->
+    <div id="addCameraModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl relative animate-fade-in" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between pb-4 border-b border-gray-800 mb-5">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-circle-plus text-indigo-400"></i>
+                    Yangi Kamera Qo'shish
+                </h3>
+                <button onclick="closeAddCameraModal()" class="text-gray-400 hover:text-white text-lg transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form id="addCamForm" onsubmit="submitAddCamera(event)" class="space-y-4">
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-xs font-semibold text-gray-400">Kamera Identifikatori (ID):</label>
+                        <span class="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-mono">Avtomatik</span>
+                    </div>
+                    <input type="text" name="cam_id" value="{{ next_cam_id }}" readonly class="w-full bg-gray-800/60 border border-gray-700/60 rounded-lg px-3 py-2 text-sm text-gray-400 font-mono focus:outline-none cursor-not-allowed">
+                    <p class="text-[11px] text-gray-500 mt-1">ID tizim tomonidan avtomatik beriladi.</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Auditoriya / Kamera Nomi:</label>
+                    <input type="text" name="name" placeholder="Auditoriya 105 - Orqa tomon" required class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Oqim Manbasi (RTSP URL yoki Vebkamera):</label>
+                    <input type="text" name="source" placeholder="rtsp://admin:parol@10.10.5.55:554/Streaming/Channels/101" required class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white font-mono text-xs focus:outline-none focus:border-indigo-500">
+                    <p class="text-[11px] text-gray-500 mt-1">Noutbuk kamerasi uchun: <code class="text-indigo-400">0</code> deb yozing.</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">FPS Limiti (Tavsiya: 10-15):</label>
+                    <input type="number" name="fps_limit" value="15" min="1" max="30" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-800">
+                    <button type="button" onclick="closeAddCameraModal()" class="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold transition">
+                        Bekor qilish
+                    </button>
+                    <button type="submit" class="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-save"></i>
+                        Kamerani Saqlash
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Batch Add Camera Modal (NVR / Diapazon Generatori) -->
+    <div id="batchAddModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-xl p-6 shadow-2xl relative animate-fade-in" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between pb-4 border-b border-gray-800 mb-4">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-lg border border-indigo-500/20">
+                        <i class="fa-solid fa-bolt"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-white">NVR / Diapazon Bo'yicha Ommaviy Qo'shish</h3>
+                        <p class="text-[11px] text-gray-400">100+ kameralarni shablon orqali bir necha soniyada avtomatik yarating.</p>
+                    </div>
+                </div>
+                <button onclick="closeBatchAddModal()" class="text-gray-400 hover:text-white text-lg transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form id="batchAddForm" onsubmit="submitBatchAdd(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Kamera Nomi Prefiksi:</label>
+                    <input type="text" name="name_prefix" value="Auditoriya" placeholder="Auditoriya" required class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                    <p class="text-[11px] text-gray-500 mt-1">Har bir kamera nomi: <span class="text-indigo-300 font-mono">"Auditoriya 1", "Auditoriya 2"...</span> bo'ladi.</p>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-xs font-semibold text-gray-400">RTSP URL Shablon:</label>
+                        <span class="text-[10px] text-indigo-400 font-mono">{CH} = Kanal raqami</span>
+                    </div>
+                    <input type="text" name="url_pattern" value="rtsp://admin:parol400@10.10.5.1:554/Streaming/Channels/{CH}01" required class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white font-mono text-xs focus:outline-none focus:border-indigo-500">
+                    <div class="mt-1 flex flex-wrap gap-1.5 text-[10px] text-gray-400">
+                        <span>💡 Namuna shablonlar:</span>
+                        <code class="bg-gray-800 px-1.5 py-0.5 rounded text-indigo-300 cursor-pointer" onclick="document.querySelector('#batchAddForm [name=url_pattern]').value=this.innerText">rtsp://admin:parol400@10.10.5.1:554/Streaming/Channels/{CH}01</code>
+                        <code class="bg-gray-800 px-1.5 py-0.5 rounded text-indigo-300 cursor-pointer" onclick="document.querySelector('#batchAddForm [name=url_pattern]').value=this.innerText">rtsp://admin:parol400@10.10.5.{IP}:554/Streaming/Channels/101</code>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Boshlanish Raqami:</label>
+                        <input type="number" name="start_num" value="1" min="1" max="500" required class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Tugash Raqami (Maks. 128 ta):</label>
+                        <input type="number" name="end_num" value="32" min="1" max="500" required class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">FPS Limiti:</label>
+                        <input type="number" name="fps_limit" value="15" min="1" max="30" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Dastlabki Holat:</label>
+                        <label class="flex items-center space-x-2 mt-2 cursor-pointer">
+                            <input type="checkbox" name="enabled" class="w-4 h-4 rounded bg-gray-700 border-gray-600 text-indigo-600 focus:ring-0">
+                            <span class="text-xs text-gray-300">Darhol faollashtirish</span>
+                        </label>
+                        <p class="text-[10px] text-gray-500">Tavsiya: Dastlab o'chiq qo'shib, keraklisini yoqing.</p>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-800">
+                    <button type="button" onclick="closeBatchAddModal()" class="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold transition">
+                        Bekor qilish
+                    </button>
+                    <button type="submit" class="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-bolt"></i>
+                        Ommaviy Generatsiya Qilish
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript Actions -->
+    <script>
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = "tab-btn flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition bg-gray-900 text-gray-400 hover:text-white hover:bg-gray-800";
+            });
+
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-btn-${tabName}`);
+            activeBtn.className = "tab-btn flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition bg-indigo-600 text-white shadow-indigo-600/30 shadow-md";
+
+            if (tabName === 'history') {
+                refreshHistory();
+            } else if (tabName === 'cameras') {
+                renderCameraTable();
+            }
+
+            // Oqimlarni optimizatsiya qilish: faqat Jonli Monitoring bo'limida streamlarni yoqish,
+            // boshqa bo'limlarda o'chirib turish (brauzer aloqalari tiqilib qolishini 100% bartaraf etadi)
+            if (tabName === 'live') {
+                updateLiveGrid();
+            } else {
+                pauseAllLiveStreams();
+            }
+        }
+
+        function showToast(message, isSuccess = true) {
+            const box = document.getElementById('toastBox');
+            box.className = `transition-all duration-300 p-4 rounded-xl text-sm font-medium flex items-center justify-between border ${
+                isSuccess 
+                ? 'bg-emerald-950/80 border-emerald-800 text-emerald-200' 
+                : 'bg-rose-950/80 border-rose-800 text-rose-200'
+            }`;
+            box.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid ${isSuccess ? 'fa-circle-check text-emerald-400' : 'fa-circle-exclamation text-rose-400'}"></i>
+                    <span>${message}</span>
+                </div>
+                <button onclick="this.parentElement.classList.add('hidden')" class="opacity-70 hover:opacity-100">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            `;
+            box.classList.remove('hidden');
+            setTimeout(() => box.classList.add('hidden'), 5000);
+        }
+
+        /* ================= 100+ KAMERALAR BOSHQARUVI (CLIENT-SIDE) ================= */
+        let allCameras = {{ cameras_json|safe }};
+        let currentFilterStatus = 'all'; // 'all', 'active', 'inactive'
+        let searchQuery = '';
+        let currentPage = 1;
+        let pageSize = 15;
+        let selectedCamIds = new Set();
+        let sortCol = 'id';
+        let sortAsc = true;
+
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function updateCameraStats() {
+            const total = allCameras.length;
+            const active = allCameras.filter(c => c.enabled !== false).length;
+            const inactive = allCameras.filter(c => c.enabled === false).length;
+
+            const elTotal = document.getElementById('statTotalCams');
+            const elActive = document.getElementById('statActiveCams');
+            const elInactive = document.getElementById('statInactiveCams');
+
+            if (elTotal) elTotal.innerText = total;
+            if (elActive) elActive.innerText = active;
+            if (elInactive) elInactive.innerText = inactive;
+        }
+
+        function getFilteredCameras() {
+            return allCameras.filter(cam => {
+                // Status filtri
+                if (currentFilterStatus === 'active' && cam.enabled === false) return false;
+                if (currentFilterStatus === 'inactive' && cam.enabled !== false) return false;
+
+                // Qidiruv filtri
+                if (searchQuery) {
+                    const q = searchQuery.toLowerCase();
+                    const name = (cam.name || '').toLowerCase();
+                    const id = (cam.id || '').toLowerCase();
+                    const src = (cam.source || '').toLowerCase();
+                    if (!name.includes(q) && !id.includes(q) && !src.includes(q)) {
+                        return false;
+                    }
+                }
+                return true;
+            }).sort((a, b) => {
+                const valA = String(a[sortCol] || '');
+                const valB = String(b[sortCol] || '');
+                const cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
+                return sortAsc ? cmp : -cmp;
+            });
+        }
+
+        function renderCameraTable() {
+            updateCameraStats();
+            const filtered = getFilteredCameras();
+            const elFiltered = document.getElementById('statFilteredCams');
+            if (elFiltered) elFiltered.innerText = filtered.length;
+
+            // Sahifalash
+            let limit = pageSize === 'all' ? filtered.length : parseInt(pageSize);
+            if (limit <= 0) limit = 15;
+            const totalPages = Math.max(1, Math.ceil(filtered.length / limit));
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
+
+            const startIdx = (currentPage - 1) * limit;
+            const endIdx = pageSize === 'all' ? filtered.length : Math.min(filtered.length, startIdx + limit);
+            const pageItems = filtered.slice(startIdx, endIdx);
+
+            const tbody = document.getElementById('camTableBody');
+            if (!tbody) return;
+
+            if (pageItems.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="py-12 text-center text-gray-500">
+                            <i class="fa-solid fa-camera-slash text-3xl mb-2 block"></i>
+                            <p class="text-sm">Kameralar topilmadi.</p>
+                            ${searchQuery ? `<button onclick="clearCameraSearch()" class="mt-2 text-xs text-indigo-400 hover:underline">Qidiruvni tozalash</button>` : ''}
+                        </td>
+                    </tr>
+                `;
+            } else {
+                tbody.innerHTML = pageItems.map(cam => {
+                    const isChecked = selectedCamIds.has(cam.id);
+                    const isEnabled = cam.enabled !== false;
+                    return `
+                        <tr class="hover:bg-gray-800/50 transition border-b border-gray-850 ${isChecked ? 'bg-indigo-950/20' : ''}">
+                            <td class="px-4 py-3 text-center">
+                                <input type="checkbox" class="cam-row-cb w-4 h-4 rounded bg-gray-700 border-gray-600 text-indigo-600 focus:ring-0 cursor-pointer" 
+                                    data-cam-id="${escapeHtml(cam.id)}" 
+                                    ${isChecked ? 'checked' : ''} 
+                                    onchange="toggleRowSelect('${escapeHtml(cam.id)}', this.checked)">
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="flex items-center space-x-2">
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" onchange="toggleCameraStatus('${escapeHtml(cam.id)}', this.checked)" ${isEnabled ? 'checked' : ''} class="sr-only peer">
+                                        <div class="w-8 h-4 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-500"></div>
+                                    </label>
+                                    <span class="text-[11px] font-semibold ${isEnabled ? 'text-emerald-400' : 'text-gray-500'}">
+                                        ${isEnabled ? 'Faol' : "O'chiq"}
+                                    </span>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 font-mono text-xs font-bold">
+                                <span class="bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded">
+                                    ${escapeHtml(cam.id)}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 font-semibold text-white text-xs">
+                                ${escapeHtml(cam.name)}
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="flex items-center space-x-2 max-w-xs sm:max-w-md">
+                                    <code class="text-xs font-mono text-gray-300 truncate" title="${escapeHtml(cam.source)}">${escapeHtml(cam.source)}</code>
+                                    <button onclick="copyRtspUrl('${escapeHtml(cam.source)}', this)" title="RTSP manzilidan nusxa olish" class="text-gray-400 hover:text-white p-1 rounded hover:bg-gray-800 transition text-xs shrink-0">
+                                        <i class="fa-regular fa-copy"></i>
+                                    </button>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <span class="text-xs font-mono text-gray-400 bg-gray-800 px-2 py-0.5 rounded border border-gray-700/60">${cam.fps_limit || 15}</span>
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                <div class="flex items-center justify-end space-x-1.5">
+                                    <button onclick="openEditCameraModalById('${escapeHtml(cam.id)}')" title="Tahrirlash" class="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500 text-amber-400 hover:text-white transition text-xs">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                    <button onclick="deleteCamera('${escapeHtml(cam.id)}')" title="O'chirish" class="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white transition text-xs">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            // Sahifalash ma'lumoti
+            const infoEl = document.getElementById('paginationInfo');
+            if (infoEl) {
+                if (filtered.length === 0) {
+                    infoEl.innerHTML = `0 ta kamera topildi`;
+                } else {
+                    infoEl.innerHTML = `Ko'rsatilmoqda: <strong class="text-white font-semibold">${startIdx + 1}-${endIdx}</strong> / jami <strong class="text-white font-semibold">${filtered.length}</strong> ta (${allCameras.length} tadan)`;
+                }
+            }
+
+            // Sahifalash tugmalari
+            renderPaginationControls(totalPages);
+
+            // Master checkbox holati
+            const masterCb = document.getElementById('masterSelectAll');
+            if (masterCb) {
+                if (pageItems.length > 0 && pageItems.every(c => selectedCamIds.has(c.id))) {
+                    masterCb.checked = true;
+                    masterCb.indeterminate = false;
+                } else if (pageItems.some(c => selectedCamIds.has(c.id))) {
+                    masterCb.checked = false;
+                    masterCb.indeterminate = true;
+                } else {
+                    masterCb.checked = false;
+                    masterCb.indeterminate = false;
+                }
+            }
+
+            updateBulkActionsBar();
+        }
+
+        function renderPaginationControls(totalPages) {
+            const controls = document.getElementById('paginationControls');
+            if (!controls) return;
+            if (pageSize === 'all' || totalPages <= 1) {
+                controls.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+            // Oldingi sahifa
+            html += `
+                <button onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled class="px-2.5 py-1 rounded bg-gray-800 text-gray-600 cursor-not-allowed"' : 'class="px-2.5 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 transition"'}>
+                    <i class="fa-solid fa-chevron-left text-xs"></i>
+                </button>
+            `;
+
+            // Smart sahifa tugmalari
+            let pages = [];
+            if (totalPages <= 7) {
+                for (let i = 1; i <= totalPages; i++) pages.push(i);
+            } else {
+                pages.push(1);
+                if (currentPage > 3) pages.push('...');
+                let start = Math.max(2, currentPage - 1);
+                let end = Math.min(totalPages - 1, currentPage + 1);
+                for (let i = start; i <= end; i++) pages.push(i);
+                if (currentPage < totalPages - 2) pages.push('...');
+                pages.push(totalPages);
+            }
+
+            pages.forEach(p => {
+                if (p === '...') {
+                    html += `<span class="px-2 text-gray-600">...</span>`;
+                } else if (p === currentPage) {
+                    html += `<button class="px-3 py-1 rounded bg-indigo-600 text-white font-bold shadow-sm">${p}</button>`;
+                } else {
+                    html += `<button onclick="goToPage(${p})" class="px-3 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 transition">${p}</button>`;
+                }
+            });
+
+            // Keyingi sahifa
+            html += `
+                <button onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled class="px-2.5 py-1 rounded bg-gray-800 text-gray-600 cursor-not-allowed"' : 'class="px-2.5 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 transition"'}>
+                    <i class="fa-solid fa-chevron-right text-xs"></i>
+                </button>
+            `;
+
+            controls.innerHTML = html;
+        }
+
+        function goToPage(page) {
+            currentPage = page;
+            renderCameraTable();
+        }
+
+        function onPageSizeChange() {
+            pageSize = document.getElementById('camPageSize').value;
+            currentPage = 1;
+            renderCameraTable();
+        }
+
+        function onCameraSearchChange() {
+            searchQuery = document.getElementById('camSearchInput').value.trim();
+            const clearBtn = document.getElementById('camSearchClearBtn');
+            if (clearBtn) clearBtn.classList.toggle('hidden', !searchQuery);
+            currentPage = 1;
+            renderCameraTable();
+        }
+
+        function clearCameraSearch() {
+            const input = document.getElementById('camSearchInput');
+            if (input) input.value = '';
+            onCameraSearchChange();
+        }
+
+        function setCamStatusFilter(status) {
+            currentFilterStatus = status;
+            ['all', 'active', 'inactive'].forEach(s => {
+                const btn = document.getElementById(`btnFilterStatus${s.charAt(0).toUpperCase() + s.slice(1)}`);
+                if (!btn) return;
+                if (s === status) {
+                    btn.className = "px-3 py-1 rounded-lg font-semibold transition bg-indigo-600 text-white shadow-sm";
+                } else {
+                    btn.className = "px-3 py-1 rounded-lg font-semibold transition text-gray-400 hover:text-white";
+                }
+            });
+            currentPage = 1;
+            renderCameraTable();
+        }
+
+        function sortCamerasBy(col) {
+            if (sortCol === col) {
+                sortAsc = !sortAsc;
+            } else {
+                sortCol = col;
+                sortAsc = true;
+            }
+            renderCameraTable();
+        }
+
+        /* --- MULTI-SELECT VA OMMAVIY AMALLAR --- */
+        function toggleMasterSelect(checked) {
+            const filtered = getFilteredCameras();
+            let limit = pageSize === 'all' ? filtered.length : parseInt(pageSize);
+            const startIdx = (currentPage - 1) * limit;
+            const endIdx = pageSize === 'all' ? filtered.length : Math.min(filtered.length, startIdx + limit);
+            const pageItems = filtered.slice(startIdx, endIdx);
+
+            pageItems.forEach(cam => {
+                if (checked) {
+                    selectedCamIds.add(cam.id);
+                } else {
+                    selectedCamIds.delete(cam.id);
+                }
+            });
+            renderCameraTable();
+        }
+
+        function toggleRowSelect(camId, checked) {
+            if (checked) {
+                selectedCamIds.add(camId);
+            } else {
+                selectedCamIds.delete(camId);
+            }
+            renderCameraTable();
+        }
+
+        function updateBulkActionsBar() {
+            const bar = document.getElementById('bulkActionsBar');
+            const countText = document.getElementById('selectedCountText');
+            if (!bar || !countText) return;
+
+            countText.innerText = selectedCamIds.size;
+            if (selectedCamIds.size > 0) {
+                bar.classList.remove('hidden');
+            } else {
+                bar.classList.add('hidden');
+            }
+        }
+
+        function clearAllSelections() {
+            selectedCamIds.clear();
+            renderCameraTable();
+        }
+
+        async function bulkToggle(enabled) {
+            if (selectedCamIds.size === 0) return;
+            const camIds = Array.from(selectedCamIds);
+            try {
+                const res = await fetch('/api/cameras/bulk-toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cam_ids: camIds, enabled: enabled })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    allCameras.forEach(c => {
+                        if (camIds.includes(c.id)) c.enabled = enabled;
+                    });
+                    showToast(data.message, true);
+                    clearAllSelections();
+                } else {
+                    showToast(data.message, false);
+                }
+            } catch (err) {
+                showToast("Xatolik: " + err, false);
+            }
+        }
+
+        async function bulkDelete() {
+            if (selectedCamIds.size === 0) return;
+            const count = selectedCamIds.size;
+            if (!confirm(`Haqiqatan ham tanlangan ${count} ta kamerani butunlay o'chirmoqchimisiz?`)) return;
+            const camIds = Array.from(selectedCamIds);
+            try {
+                const res = await fetch('/api/cameras/bulk-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cam_ids: camIds })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    allCameras = allCameras.filter(c => !camIds.includes(c.id));
+                    showToast(data.message, true);
+                    clearAllSelections();
+                } else {
+                    showToast(data.message, false);
+                }
+            } catch (err) {
+                showToast("Xatolik: " + err, false);
+            }
+        }
+
+        /* --- MODALLAR VA AMALLAR --- */
+        function openAddCameraModal() {
+            // Avtomatik keyingi mavjud ID ni aniqlash
+            const existingIds = new Set(allCameras.map(c => c.id));
+            let n = 1;
+            while (existingIds.has(`cam_${n}`)) {
+                n++;
+            }
+            const input = document.querySelector('#addCameraModal input[name="cam_id"]');
+            if (input) input.value = `cam_${n}`;
+            document.getElementById('addCameraModal').classList.remove('hidden');
+        }
+
+        function closeAddCameraModal() {
+            document.getElementById('addCameraModal').classList.add('hidden');
+        }
+
+        async function submitAddCamera(e) {
+            e.preventDefault();
+            const form = new FormData(e.target);
+            try {
+                const res = await fetch('/api/cameras/add', { method: 'POST', body: form });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, true);
+                    closeAddCameraModal();
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(data.message, false);
+                }
+            } catch (err) {
+                showToast("Xatolik: " + err, false);
+            }
+        }
+
+        function openBatchAddModal() {
+            document.getElementById('batchAddModal').classList.remove('hidden');
+        }
+
+        function closeBatchAddModal() {
+            document.getElementById('batchAddModal').classList.add('hidden');
+        }
+
+        async function submitBatchAdd(e) {
+            e.preventDefault();
+            const form = new FormData(e.target);
+            try {
+                const res = await fetch('/api/cameras/batch-generate', { method: 'POST', body: form });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, true);
+                    closeBatchAddModal();
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(data.message, false);
+                }
+            } catch (err) {
+                showToast("Xatolik: " + err, false);
+            }
+        }
+
+        function openEditCameraModalById(camId) {
+            const cam = allCameras.find(c => c.id === camId);
+            if (!cam) return;
+            document.getElementById('editCamId').value = cam.id;
+            document.getElementById('editCamName').value = cam.name;
+            document.getElementById('editCamSource').value = cam.source;
+            document.getElementById('editCamFps').value = cam.fps_limit || 15;
+            const enabledCb = document.getElementById('editCamEnabled');
+            enabledCb.checked = cam.enabled !== false;
+            document.getElementById('editCamEnabledLabel').innerText = enabledCb.checked ? 'Faol' : "O'chirilgan";
+            enabledCb.onchange = (e) => {
+                document.getElementById('editCamEnabledLabel').innerText = e.target.checked ? 'Faol' : "O'chirilgan";
+            };
+            document.getElementById('editCameraModal').classList.remove('hidden');
+        }
+
+        function openEditCameraModal(camId, camName, camSource, camFps, camEnabled) {
+            openEditCameraModalById(camId);
+        }
+
+        function closeEditCameraModal() {
+            document.getElementById('editCameraModal').classList.add('hidden');
+        }
+
+        async function submitEditCamera(e) {
+            e.preventDefault();
+            const form = new FormData(e.target);
+            form.set('enabled', document.getElementById('editCamEnabled').checked);
+            try {
+                const res = await fetch('/api/cameras/edit', { method: 'POST', body: form });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message, true);
+                    closeEditCameraModal();
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(data.message, false);
+                }
+            } catch (err) {
+                showToast("Xatolik: " + err, false);
+            }
+        }
+
+        async function deleteCamera(camId) {
+            if (!confirm(`'${camId}' kamerasini o'chirishga ishonchingiz komilmi?`)) return;
+            const form = new FormData();
+            form.append('cam_id', camId);
+            try {
+                const res = await fetch('/api/cameras/delete', { method: 'POST', body: form });
+                const data = await res.json();
+                if (data.success) {
+                    allCameras = allCameras.filter(c => c.id !== camId);
+                    showToast(data.message, true);
+                    renderCameraTable();
+                } else {
+                    showToast(data.message, false);
+                }
+            } catch (err) {
+                showToast("Xatolik: " + err, false);
+            }
+        }
+
+        async function toggleCameraStatus(camId, isEnabled) {
+            const form = new FormData();
+            form.append('cam_id', camId);
+            form.append('enabled', isEnabled);
+            try {
+                const res = await fetch('/api/cameras/toggle', { method: 'POST', body: form });
+                const data = await res.json();
+                if (data.success) {
+                    const cam = allCameras.find(c => c.id === camId);
+                    if (cam) cam.enabled = isEnabled;
+                    updateCameraStats();
+                    showToast(data.message, true);
+                } else {
+                    showToast(data.message, false);
+                }
+            } catch (err) {
+                showToast("Xatolik: " + err, false);
+            }
+        }
+
+        function copyRtspUrl(url, btn) {
+            if (!navigator.clipboard) {
+                const el = document.createElement('textarea');
+                el.value = url;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+            } else {
+                navigator.clipboard.writeText(url);
+            }
+            showToast("RTSP manzilidan nusxa olindi!", true);
+            if (btn) {
+                const orig = btn.innerHTML;
+                btn.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i>`;
+                setTimeout(() => btn.innerHTML = orig, 1500);
+            }
+        }
+
+        // Boshlang'ich yuklash
+        document.addEventListener('DOMContentLoaded', () => {
+            updateLiveStreamToggleUI();
+            renderCameraTable();
+            updateLiveGrid();
+        });
+
+        async function saveTelegramSettings(e) {
+            e.preventDefault();
+            const form = new FormData(e.target);
+            form.set('enabled', document.getElementById('tgEnabled').checked);
+            form.set('include_status', document.getElementById('tgIncludeStatus').checked);
+            try {
+                const res = await fetch('/api/telegram/save', { method: 'POST', body: form });
+                const data = await res.json();
+                showToast(data.message, data.success);
+            } catch (err) {
+                showToast("Xatolik: " + err, false);
+            }
+        }
+
+        async function testTelegramConnection() {
+            const bot_token = document.getElementById('tgBotToken').value;
+            const chat_id = document.getElementById('tgChatId').value;
+            if (!chat_id) {
+                showToast("Kanal yoki Guruh ID sini kiriting!", false);
+                return;
+            }
+            const form = new FormData();
+            form.append('bot_token', bot_token);
+            form.append('chat_id', chat_id);
+            try {
+                const res = await fetch('/api/telegram/test', { method: 'POST', body: form });
+                const data = await res.json();
+                showToast(data.message, data.success);
+            } catch (err) {
+                showToast("Xatolik: " + err, false);
+            }
+        }
+
+        async function detectChannelId() {
+            const token = document.getElementById('tgBotToken').value;
+            try {
+                const res = await fetch(`/api/telegram/detect-chat-id?bot_token=${encodeURIComponent(token)}`);
+                const data = await res.json();
+                if (data.success && data.chat_id) {
+                    document.getElementById('tgChatId').value = data.chat_id;
+                    showToast(data.message, true);
+                } else {
+                    showToast(data.message, false);
+                }
+            } catch (err) {
+                showToast("Xatolik: " + err, false);
+            }
+        }
+
+        async function saveDetectionRules(e) {
+            e.preventDefault();
+            const form = new FormData(e.target);
+            form.set('sleep_enabled', e.target.sleep_enabled.checked);
+            form.set('phone_enabled', e.target.phone_enabled.checked);
+            form.set('talking_enabled', e.target.talking_enabled.checked);
+            form.set('teacher_filter_enabled', e.target.teacher_filter_enabled ? e.target.teacher_filter_enabled.checked : true);
+            form.set('roi_enabled', e.target.roi_enabled ? e.target.roi_enabled.checked : true);
+            form.set('baby_enabled', e.target.baby_enabled ? e.target.baby_enabled.checked : true);
+            try {
+                const res = await fetch('/api/detection/save', { method: 'POST', body: form });
+                const data = await res.json();
+                showToast(data.message, data.success);
+            } catch (err) {
+                showToast("Xatolik: " + err, false);
+            }
+        }
+
+        async function refreshHistory() {
+            try {
+                const res = await fetch('/api/history');
+                const list = await res.json();
+                const container = document.getElementById('historyCards');
+                if (!list || list.length === 0) {
+                    container.innerHTML = '<div class="col-span-full text-center py-12 text-gray-500"><i class="fa-solid fa-shield-cat text-4xl mb-2"></i><p class="text-sm">Hozircha qoidabuzarliklar qayd etilmadi.</p></div>';
+                    return;
+                }
+                container.innerHTML = list.map(item => `
+                    <div class="bg-gray-800/70 border border-gray-700/60 rounded-xl overflow-hidden hover:border-indigo-500/50 transition flex flex-col">
+                        <div class="relative bg-black aspect-video flex items-center justify-center cursor-pointer" onclick="openImageModal('/api/captures/${item.image}')">
+                            <img src="/api/captures/${item.image}" alt="${item.title}" class="w-full h-full object-cover">
+                            <span class="absolute top-2 left-2 px-2 py-0.5 rounded text-[11px] font-bold uppercase
+                                ${item.type === 'SLEEPING' ? 'bg-sky-600 text-white' : item.type === 'PHONE' ? 'bg-rose-600 text-white' : 'bg-amber-600 text-white'}">
+                                ${item.type}
+                            </span>
+                        </div>
+                        <div class="p-3 text-xs space-y-1">
+                            <p class="font-bold text-gray-200">${item.title}</p>
+                            <div class="flex justify-between text-gray-400">
+                                <span>${item.camera_name}</span>
+                                <span class="font-semibold text-emerald-400">${item.confidence}</span>
+                            </div>
+                            <p class="text-[11px] text-gray-500">${item.time}</p>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error("Tarixni yuklashda xatolik:", err);
+            }
+        }
+
+        function openImageModal(src) {
+            document.getElementById('modalImg').src = src;
+            document.getElementById('imageModal').classList.remove('hidden');
+        }
+
+        function closeImageModal() {
+            document.getElementById('imageModal').classList.add('hidden');
+        }
+
+        /* --- JONLI EFIR KATTALASHTIRISH (ZOOM & FULLSCREEN) --- */
+        let currentZoomScale = 1.0;
+        let panX = 0, panY = 0;
+        let isDragging = false;
+        let startX = 0, startY = 0;
+
+        /* --- JONLI EFIR VA BRAUZER ALOQALARINI OPTIMIZATSIYA QILISH --- */
+        let currentFocusedCam = 'all';
+        let liveGridPage = 1;
+        const LIVE_GRID_PAGE_SIZE = 4; // Bitta ekranda maksimal 4 ta oqim (Chrome ning 6 ta ulanish chegarasidan oshib ketmasligi uchun)
+        let isGlobalLiveStreaming = localStorage.getItem('detector_live_stream_enabled') !== 'false';
+
+        function updateLiveStreamToggleUI() {
+            const btn = document.getElementById('btnGlobalLiveToggle');
+            const dot = document.getElementById('dotGlobalLive');
+            const text = document.getElementById('textGlobalLive');
+            if (!btn || !text || !dot) return;
+
+            if (isGlobalLiveStreaming) {
+                btn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-2 shadow-sm bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-600 hover:text-white shrink-0";
+                dot.className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
+                text.innerText = "Jonli Efir: YOQILGAN";
+            } else {
+                btn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-2 shadow-sm bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600 hover:text-white shrink-0";
+                dot.className = "w-2 h-2 rounded-full bg-indigo-400";
+                text.innerText = "Jonli Efir: O'CHIRILGAN (Tejamkor AI)";
+            }
+        }
+
+        function toggleGlobalLiveStream() {
+            isGlobalLiveStreaming = !isGlobalLiveStreaming;
+            localStorage.setItem('detector_live_stream_enabled', isGlobalLiveStreaming ? 'true' : 'false');
+            updateLiveStreamToggleUI();
+            updateLiveGrid();
+            if (isGlobalLiveStreaming) {
+                showToast("Jonli efir yoqildi (Video oqimlari faol)", true);
+            } else {
+                showToast("Jonli efir to'xtatildi. AI tahlil orqa fonda to'liq quvvatda ishlamoqda!", true);
+            }
+        }
+
+        function startSingleStream(camId, e) {
+            if (e) e.stopPropagation();
+            const card = document.getElementById(`card-${camId}`);
+            if (!card) return;
+            const img = card.querySelector('img');
+            const placeholder = card.querySelector('.stream-paused-placeholder');
+            if (placeholder) placeholder.classList.add('hidden');
+            if (img) {
+                img.dataset.paused = "false";
+                img.src = img.dataset.streamUrl || `/api/cameras/${camId}/stream`;
+            }
+            showToast(`${camId} kamerasi jonli efiri yoqildi`, true);
+        }
+
+        function pauseAllLiveStreams() {
+            document.querySelectorAll('.camera-card img').forEach(img => {
+                if (img.src && !img.dataset.paused) {
+                    img.dataset.paused = "true";
+                    img.src = ""; // Aloqani uzish
+                }
+            });
+        }
+
+        function updateLiveGrid() {
+            const cards = Array.from(document.querySelectorAll('.camera-card'));
+            const paginationBox = document.getElementById('gridPaginationControls');
+            const pageInfo = document.getElementById('liveGridPageInfo');
+            const grid = document.getElementById('liveCameraGrid');
+
+            if (!grid) return;
+
+            // Agar global jonli efir o'chirilgan bo'lsa (Tejamkor AI rejimi):
+            if (!isGlobalLiveStreaming) {
+                if (paginationBox) paginationBox.classList.add('hidden');
+                grid.className = "grid grid-cols-1 md:grid-cols-2 gap-6";
+                cards.forEach(card => {
+                    card.classList.remove('hidden', 'md:col-span-2');
+                    const img = card.querySelector('img');
+                    const placeholder = card.querySelector('.stream-paused-placeholder');
+                    if (placeholder) placeholder.classList.remove('hidden');
+                    if (img && img.src) {
+                        img.dataset.paused = "true";
+                        img.src = ""; // Aloqani uzish
+                    }
+                });
+                return;
+            }
+
+            if (currentFocusedCam !== 'all') {
+                if (paginationBox) paginationBox.classList.add('hidden');
+                grid.className = "grid grid-cols-1 gap-6";
+                cards.forEach(card => {
+                    const img = card.querySelector('img');
+                    const placeholder = card.querySelector('.stream-paused-placeholder');
+                    if (placeholder) placeholder.classList.add('hidden');
+
+                    if (card.dataset.camId === currentFocusedCam) {
+                        card.classList.remove('hidden');
+                        card.classList.add('md:col-span-2');
+                        if (img) {
+                            img.dataset.paused = "false";
+                            const streamUrl = img.dataset.streamUrl || `/api/cameras/${currentFocusedCam}/stream`;
+                            if (img.src !== streamUrl) img.src = streamUrl;
+                        }
+                    } else {
+                        card.classList.add('hidden');
+                        if (img && img.src) {
+                            img.dataset.paused = "true";
+                            img.src = "";
+                        }
+                    }
+                });
+                return;
+            }
+
+            // Barchasi (Grid) rejimi:
+            grid.className = "grid grid-cols-1 md:grid-cols-2 gap-6";
+            const totalCards = cards.length;
+            const totalPages = Math.max(1, Math.ceil(totalCards / LIVE_GRID_PAGE_SIZE));
+            if (liveGridPage > totalPages) liveGridPage = totalPages;
+            if (liveGridPage < 1) liveGridPage = 1;
+
+            if (totalCards > LIVE_GRID_PAGE_SIZE) {
+                if (paginationBox) paginationBox.classList.remove('hidden');
+                if (pageInfo) pageInfo.innerText = `${liveGridPage} / ${totalPages}`;
+            } else {
+                if (paginationBox) paginationBox.classList.add('hidden');
+            }
+
+            const startIdx = (liveGridPage - 1) * LIVE_GRID_PAGE_SIZE;
+            const endIdx = startIdx + LIVE_GRID_PAGE_SIZE;
+
+            cards.forEach((card, idx) => {
+                const img = card.querySelector('img');
+                const placeholder = card.querySelector('.stream-paused-placeholder');
+                const camId = card.dataset.camId;
+                const streamUrl = img ? (img.dataset.streamUrl || `/api/cameras/${camId}/stream`) : '';
+
+                if (idx >= startIdx && idx < endIdx) {
+                    card.classList.remove('hidden', 'md:col-span-2');
+                    if (placeholder) placeholder.classList.add('hidden');
+                    if (img) {
+                        img.dataset.paused = "false";
+                        if (img.src !== streamUrl) img.src = streamUrl;
+                    }
+                } else {
+                    card.classList.add('hidden');
+                    if (img && img.src) {
+                        img.dataset.paused = "true";
+                        img.src = ""; // Aloqani uzish
+                    }
+                }
+            });
+        }
+
+        function changeLiveGridPage(delta) {
+            liveGridPage += delta;
+            updateLiveGrid();
+        }
+
+        function focusCamera(targetCamId) {
+            currentFocusedCam = targetCamId;
+            const buttons = document.querySelectorAll('.cam-filter-btn');
+            buttons.forEach(b => {
+                b.className = "cam-filter-btn px-3 py-1.5 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 text-xs font-semibold transition border border-gray-700 shrink-0";
+            });
+
+            const activeBtn = document.getElementById(targetCamId === 'all' ? 'btn-filter-all' : `btn-filter-${targetCamId}`);
+            if (activeBtn) activeBtn.className = "cam-filter-btn px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold transition shadow-sm shrink-0";
+
+            updateLiveGrid();
+        }
+
+        function openLiveZoomModal(camId, camName) {
+            const modal = document.getElementById('liveZoomModal');
+            const title = document.getElementById('zoomCamTitle');
+            const img = document.getElementById('zoomLiveImg');
+
+            title.innerText = camName + ` (${camId})`;
+            img.src = `/api/cameras/${camId}/stream`;
+
+            resetZoom();
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLiveZoomModal() {
+            const modal = document.getElementById('liveZoomModal');
+            const img = document.getElementById('zoomLiveImg');
+            img.src = ''; // Bandwidth tejash uchun to'xtatish
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+
+        function updateTransform() {
+            const img = document.getElementById('zoomLiveImg');
+            img.style.transform = `translate(${panX}px, ${panY}px) scale(${currentZoomScale})`;
+            document.getElementById('zoomLevelBtn').innerText = `${Math.round(currentZoomScale * 100)}%`;
+        }
+
+        function changeZoom(delta) {
+            currentZoomScale = Math.min(4.0, Math.max(1.0, currentZoomScale + delta));
+            if (currentZoomScale === 1.0) {
+                panX = 0; panY = 0;
+            }
+            updateTransform();
+        }
+
+        function resetZoom() {
+            currentZoomScale = 1.0;
+            panX = 0;
+            panY = 0;
+            updateTransform();
+        }
+
+        function toggleBrowserFullscreen() {
+            const modal = document.getElementById('liveZoomModal');
+            if (!document.fullscreenElement) {
+                modal.requestFullscreen().catch(err => alert("To'liq ekranga o'tib bo'lmadi: " + err));
+            } else {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+
+        // Sichqoncha bilan yaqinlashtirish va surish
+        const viewport = document.getElementById('zoomViewport');
+        if (viewport) {
+            viewport.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const delta = e.deltaY < 0 ? 0.2 : -0.2;
+                changeZoom(delta);
+            }, { passive: false });
+
+            viewport.addEventListener('mousedown', (e) => {
+                if (currentZoomScale > 1.0) {
+                    isDragging = true;
+                    startX = e.clientX - panX;
+                    startY = e.clientY - panY;
+                }
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                panX = e.clientX - startX;
+                panY = e.clientY - startY;
+                updateTransform();
+            });
+
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+        }
+
+        // Klaviaturada Esc bosilganda oynani yopish
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeLiveZoomModal();
+                closeImageModal();
+                closeEditCameraModal();
+                closeAddCameraModal();
+                closeBatchAddModal();
+            }
+        });
+    </script>
+</body>
+</html>

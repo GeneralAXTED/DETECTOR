@@ -1,0 +1,55 @@
+cameras:
+- enabled: true
+  fps_limit: 30
+  id: cam_1
+  name: "101-Auditoriya"
+  source: "rtsp://admin:password@192.168.1.100:554/Streaming/Channels/101"
+- enabled: false
+  fps_limit: 15
+  id: cam_2
+  name: "Kutubxona"
+  source: "0"
+
+classifier:
+  auto_collect: true
+  enabled: true
+  model_path: models/behavior_classifier.pt
+
+detection:
+  baby_detection:
+    enabled: true
+  confidence_threshold: 0.8
+  pose_confidence_threshold: 0.15
+  roi:
+    enabled: true
+    margin_pct: 0.01
+  phone:
+    enabled: true
+    min_duration_seconds: 3.0
+    wrist_face_proximity: 0.2
+  sleeping:
+    enabled: true
+    head_shoulder_ratio: 0.25
+    min_duration_seconds: 15.0
+  talking:
+    enabled: true
+    head_angle_threshold: 45.0
+    max_peer_distance: 0.35
+    min_duration_seconds: 4.0
+  teacher_filter:
+    bottom_zone_ratio: 0.3
+    enabled: true
+
+system:
+  captures_dir: captures
+  device: cuda
+  host: 0.0.0.0
+  port: 8000
+  save_captures: true
+
+telegram:
+  alert_cooldown_seconds: 60
+  bot_token: "YOUR_TELEGRAM_BOT_TOKEN_HERE"
+  chat_id: "YOUR_CHAT_OR_CHANNEL_ID_HERE"
+  enabled: false
+  include_status: true
