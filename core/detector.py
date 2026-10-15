@@ -49,9 +49,9 @@ class SmartDetector:
 
         logger.info("YOLO modellari muvaffaqiyatli yuklandi.")
 
-        # Har bir kamera uchun mustaqil telefon kesh xotirasi
         self._cam_frame_counts: Dict[str, int] = {}
         self._cached_phones: Dict[str, List[List[int]]] = {}
+        self._total_inferences = 0
 
     def process_frame(
         self, frame: np.ndarray, cam_id: str = "default"
@@ -65,6 +65,11 @@ class SmartDetector:
         """
         count = self._cam_frame_counts.get(cam_id, 0) + 1
         self._cam_frame_counts[cam_id] = count
+        self._total_inferences += 1
+
+        # Har 250 ta tahlildan so'ng GPU xotirasini tozalash (VRAM fragmentatsiyasining oldini oladi)
+        if self.device == "cuda" and (self._total_inferences % 250 == 0):
+            torch.cuda.empty_cache()
 
         persons_boxes: List[List[int]] = []
         persons_keypoints: List[np.ndarray] = []
