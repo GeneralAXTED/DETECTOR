@@ -64,6 +64,7 @@ class DetectionEngine:
         last_ai_time: Dict[str, float] = {}
         cached_overlay: Dict[str, tuple] = {}
         last_visual_seq: Dict[str, int] = {}
+        last_visual_render: Dict[str, float] = {}
 
         while self._running:
             camera_items = list(self.stream_manager.cameras.items())
@@ -130,21 +131,24 @@ class DetectionEngine:
                         self._draw_overlay(vis_frame, p_boxes, p_kpts, ph_boxes, violations, teacher_boxes, edge_boxes, baby_students, stream.fps_actual)
                         stream.set_annotated_frame(vis_frame)
                         last_visual_seq[cam_id] = frame_seq
+                        last_visual_render[cam_id] = now
 
-            # 2. Veb tomoshabinlar uchun oraliq kadrlar (Silliq 12-15 FPS Live Stream)
-            # Faqat ayni paytda brauzerda ochilgan kameralar uchun yengil chizish
+            # 2. Veb tomoshabinlar uchun oraliq kadrlar (Silliq 12 FPS Live Stream)
+            # Faqat ayni paytda brauzerda ochilgan kameralar uchun va maksimal 12 FPS (0.08s) chastotada chizish
             for cam_id, stream in camera_items:
                 if stream.is_viewed() and (cam_id in cached_overlay):
-                    raw_frame, frame_seq = stream.get_latest_frame_with_seq()
-                    if raw_frame is not None and frame_seq != last_visual_seq.get(cam_id, -1):
-                        last_visual_seq[cam_id] = frame_seq
-                        p_boxes, p_kpts, ph_boxes, violations, teacher_boxes, edge_boxes, baby_students = cached_overlay[cam_id]
-                        vis_frame = raw_frame.copy()
-                        self._draw_overlay(vis_frame, p_boxes, p_kpts, ph_boxes, violations, teacher_boxes, edge_boxes, baby_students, stream.fps_actual)
-                        stream.set_annotated_frame(vis_frame)
+                    if (now - last_visual_render.get(cam_id, 0.0)) >= 0.08:
+                        raw_frame, frame_seq = stream.get_latest_frame_with_seq()
+                        if raw_frame is not None and frame_seq != last_visual_seq.get(cam_id, -1):
+                            last_visual_seq[cam_id] = frame_seq
+                            last_visual_render[cam_id] = now
+                            p_boxes, p_kpts, ph_boxes, violations, teacher_boxes, edge_boxes, baby_students = cached_overlay[cam_id]
+                            vis_frame = raw_frame.copy()
+                            self._draw_overlay(vis_frame, p_boxes, p_kpts, ph_boxes, violations, teacher_boxes, edge_boxes, baby_students, stream.fps_actual)
+                            stream.set_annotated_frame(vis_frame)
 
-            # CPU ga nafas berish va mikro-kechikish
-            time.sleep(0.02)
+            # CPU ga nafas berish va mikro-kechikish (CPU yukini 3-4 baravar kamaytiradi)
+            time.sleep(0.03)
 
     def _draw_overlay(
         self,

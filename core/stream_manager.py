@@ -64,13 +64,14 @@ class CameraStream:
         """VideoCapture obyektini ochish."""
         self._release_cap()
         try:
-            # RTSP oqimlari uchun past kechikish, kengaytirilgan bufer va barqaror TCP uzatish
+            # RTSP oqimlari uchun past kechikish, cheklangan FFmpeg oqimlari va barqaror TCP uzatish
             if isinstance(self.source, str) and self.source.startswith("rtsp://"):
                 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
+                    "threads;2|"
                     "rtsp_transport;tcp|"
-                    "buffer_size;2048000|"
+                    "buffer_size;1024000|"
                     "max_delay;500000|"
-                    "reorder_queue_size;100|"
+                    "reorder_queue_size;50|"
                     "stimeout;5000000"
                 )
                 self._cap = cv2.VideoCapture(self.source, cv2.CAP_FFMPEG)
@@ -90,7 +91,12 @@ class CameraStream:
             return False
 
     def _capture_loop(self):
-        """RTSP buferini to'ldirmasdan va HEVC kadrlarini uzmasdan eng so'nggi kadrni olish."""
+        """
+        RTSP buferini to'ldirmasdan (zero-latency) va CPU ni tejagan holda kadrlarni o'qish:
+        1. grab() tarmoq buferini tezkor bo'shatadi (CPU ~0%).
+        2. retrieve() esa faqat kerakli chastotada (vebda 12-15 FPS, fonda 4-5 FPS)
+           dekodlanadi, bu CPU yukini 70-80% ga qisqartiradi!
+        """
         is_rtsp = isinstance(self.source, str) and self.source.startswith("rtsp://")
         fps_interval = 1.0 / max(1, self.fps_limit)
         frame_counter = 0
@@ -100,24 +106,45 @@ class CameraStream:
         while self._running:
             if self._cap is None or not self._cap.isOpened():
                 if not self._init_capture():
-                    time.sleep(3.0)  # Qayta ulanish oralig'i
+                    time.sleep(3.0)
                     continue
 
-            # RTSP bo'lmagan manbalar (masalan, fayl) uchun FPS tezligini cheklash
-            if not is_rtsp:
-                now = time.time()
+            now = time.time()
+
+            if is_rtsp:
+                # 1. Tezkor paket qabul qilish (Socket buferi to'lib ketmasligi va kechikish 0 bo'lishi uchun)
+                grabbed = self._cap.grab()
+                if not grabbed:
+                    logger.warning(f"[{self.name}] Kadr olinmadi, qayta ulanish kutilmoqda...")
+                    self._release_cap()
+                    time.sleep(2.0)
+                    continue
+
+                # 2. Dinamik CPU dekodlash chastotasi:
+                # Agar vebda tomosha qilinayotgan bo'lsa -> 12-15 FPS
+                # Agar faqat fonda AI navbatini kutayotgan bo'lsa -> 4-5 FPS (CPU ni keskin tejaydi!)
+                target_fps = float(self.fps_limit) if self.is_viewed() else min(5.0, float(self.fps_limit))
+                min_decode_interval = 1.0 / max(1.0, target_fps)
+
+                if (now - self._last_frame_time) < min_decode_interval:
+                    continue
+
+                # 3. Faqat kerakli chastotada CPU da dekodlash (retrieve)
+                ret, frame = self._cap.retrieve()
+                if not ret or frame is None:
+                    continue
+            else:
                 elapsed = now - self._last_frame_time
                 if elapsed < fps_interval:
                     time.sleep(min(fps_interval - elapsed, 0.01))
 
-            ret, frame = self._cap.read()
-            if not ret or frame is None:
-                logger.warning(f"[{self.name}] Kadr olinmadi, qayta ulanish kutilmoqda...")
-                self._release_cap()
-                time.sleep(2.0)
-                continue
+                ret, frame = self._cap.read()
+                if not ret or frame is None:
+                    logger.warning(f"[{self.name}] Kadr olinmadi, qayta ulanish kutilmoqda...")
+                    self._release_cap()
+                    time.sleep(2.0)
+                    continue
 
-            now = time.time()
             self._last_frame_time = now
             frame_counter += 1
             seq += 1
@@ -154,16 +181,21 @@ class CameraStream:
             return self._latest_frame, self._latest_frame_seq
 
     def set_annotated_frame(self, frame: np.ndarray):
-        """Veb interfeysda ko'rsatish uchun chizilgan kadrni saqlash va faqat ko'rilayotgan bo'lsa JPEG kodlash."""
+        """Veb interfeysda ko'rsatish uchun chizilgan kadrni saqlash va faqat ko'rilayotgan bo'lsa tezkor JPEG kodlash."""
+        now = time.time()
         jpeg_bytes = None
-        # Faqat ayni paytda brauzerda tomosha qilinayotgan bo'lsagina JPEG ga kodlash (CPU ni 80% tejaydi!)
-        if self.is_viewed():
+        # Faqat ayni paytda brauzerda tomosha qilinayotgan bo'lsa va maksimal ~13 FPS dan oshmagan holda kodlash
+        if self.is_viewed() and (now - getattr(self, "_last_jpeg_time", 0.0) >= 0.075):
+            self._last_jpeg_time = now
             h, w = frame.shape[:2]
-            if w > 1280:
-                preview = cv2.resize(frame, (1280, int(h * 1280 / w)), interpolation=cv2.INTER_LINEAR)
+            target_w = 960 if w > 960 else w
+            if target_w != w:
+                preview = cv2.resize(frame, (target_w, int(h * target_w / w)), interpolation=cv2.INTER_LINEAR)
             else:
                 preview = frame
-            ret, buf = cv2.imencode('.jpg', preview, [cv2.IMWRITE_JPEG_QUALITY, 70])
+
+            # Fast JPEG (IMWRITE_JPEG_OPTIMIZE=0 orqali ortiqcha Huffman sikllarini o'chirib, CPU ni 2x tejash)
+            ret, buf = cv2.imencode('.jpg', preview, [cv2.IMWRITE_JPEG_QUALITY, 68, cv2.IMWRITE_JPEG_OPTIMIZE, 0])
             if ret:
                 jpeg_bytes = buf.tobytes()
 

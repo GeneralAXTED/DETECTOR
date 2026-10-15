@@ -10,6 +10,13 @@ if sys.platform == "win32":
 os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "-8"
 os.environ["OPENCV_LOG_LEVEL"] = "ERROR"
 
+# CPU yuklanishini kamaytirish: OpenCV va PyTorch uchun oqimlar sonini optimallash
+import cv2
+import torch
+cv2.setNumThreads(2)
+if hasattr(torch, "set_num_threads"):
+    torch.set_num_threads(4)
+
 import uvicorn
 from pathlib import Path
 

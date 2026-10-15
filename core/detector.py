@@ -82,6 +82,7 @@ class SmartDetector:
                 imgsz=self.imgsz,
                 conf=min(self.conf_thresh, 0.20),  # Partaga yotgan/uxlayotgan talabalarni o'tkazib yubormaslik uchun
                 classes=[0],  # 0: person
+                half=(self.device == "cuda"),  # GPU TensorCores (FP16) orqali GPU ni to'liq ishlatish
                 verbose=False
             )
 
@@ -106,6 +107,7 @@ class SmartDetector:
                     imgsz=self.imgsz,
                     conf=0.20,
                     classes=[0, 67],  # 0: person, 67: cell phone
+                    half=(self.device == "cuda"),
                     verbose=False
                 )
 
